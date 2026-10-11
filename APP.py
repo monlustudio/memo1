@@ -1,522 +1,300 @@
 import json
 import os
 from datetime import datetime
-import tkinter.colorchooser as colorchooser
-import customtkinter as ctk
+import pandas as pd
+import streamlit as st
 
-# 設定外觀模式與顏色主題
-ctk.set_appearance_mode("Light")
-ctk.set_default_color_theme("blue")
+# 設定頁面標題與佈局
+st.set_page_config(
+    page_title="工作待辦清單", page_icon="📋", layout="centered"
+)
 
-DATA_FILE = "tasks.json"
-TAGS_FILE = "tags.json"
+# 資料儲存檔案路徑
+DATA_FILE = "todo_data.json"
 
-class TodoApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
 
-        self.title("工作待辦清單")
-        self.geometry("850x750")
-        self.minsize(780, 680)
+# 初始化載入與儲存資料
+def load_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    # 預設初始資料與版面一致
+    return {
+        "tags": {
+            "紅斗泥": "#E0A9A9",
+            "拍攝": "#D0E1D4",
+            "修圖": "#D4E1E9",
+            "會議": "#E9E1D4",
+            "設計": "#E1D4E9",
+        },
+        "tasks": [
+            {
+                "title": "新版DM",
+                "tag": "紅斗泥",
+                "status": "pending",
+                "created_at": "2026-10-10 00:33",
+            },
+            {
+                "title": "電子版菜單製作",
+                "tag": "紅斗泥",
+                "status": "pending",
+                "created_at": "2026-10-10 00:33",
+            },
+            {
+                "title": "pop文宣 中秋商品",
+                "tag": "紅斗泥",
+                "status": "pending",
+                "created_at": "2026-10-10 00:33",
+            },
+            {
+                "title": "鹽埕a2圖片",
+                "tag": "紅斗泥",
+                "status": "pending",
+                "created_at": "2026-10-10 00:33",
+            },
+        ],
+    }
 
-        # 載入資料與標籤設定
-        self.common_tags = self.load_tags()
-        self.current_tag = ""
-        self.current_color = list(self.common_tags.values())[0] if self.common_tags else "#f5d0d6"
-        
-        self.tasks = self.load_data()
 
-        # 拖曳狀態變數
-        self.drag_data = {"index": None, "widgets": []}
+def save_data(data):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
-        # 建立 UI
-        self.create_widgets()
-        self.refresh_task_list()
 
-    def load_tags(self):
-        if os.path.exists(TAGS_FILE):
-            try:
-                with open(TAGS_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {
-            "拍攝": "#ffd8a8",
-            "修圖": "#bac8ff",
-            "會議": "#eebefa",
-            "設計": "#c3fae8",
-            "紅豆泥": "#f5d0d6"
-        }
+if "app_data" not in st.session_state:
+    st.session_state.app_data = load_data()
 
-    def save_tags(self):
-        with open(TAGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.common_tags, f, ensure_ascii=False, indent=4)
+data = st.session_state.app_data
 
-    def load_data(self):
-        if os.path.exists(DATA_FILE):
-            try:
-                with open(DATA_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    for item in data:
-                        if "completed" not in item:
-                            item["completed"] = False
-                        if "created_date" not in item:
-                            item["created_date"] = datetime.now().strftime("%Y-%m-%d")
-                        if "completed_date" not in item:
-                            item["completed_date"] = ""
-                    return data
-            except Exception:
-                return []
-        today = datetime.now().strftime("%Y-%m-%d")
-        return [
-            {"text": "新版DM", "tag": "紅豆泥", "color": "#f5d0d6", "completed": False, "created_date": today, "completed_date": ""},
-            {"text": "電子版菜單製作", "tag": "", "color": "#f5d0d6", "completed": False, "created_date": today, "completed_date": ""},
-            {"text": "pop文宣 中秋商品", "tag": "紅豆泥", "color": "#f5d0d6", "completed": False, "created_date": today, "completed_date": ""},
-            {"text": "鹽埕a2圖片", "tag": "紅豆泥", "color": "#f5d0d6", "completed": False, "created_date": today, "completed_date": ""},
-        ]
+if "show_history" not in st.session_state:
+    st.session_state.show_history = False
 
-    def save_data(self):
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.tasks, f, ensure_ascii=False, indent=4)
+# 自訂 CSS 打造精緻圓角卡片與現代感外框
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #f7f8fa;
+    }
+    .stButton>button {
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 13px;
+        padding: 4px 10px;
+        width: 100%;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
-    def create_widgets(self):
-        main_frame = ctk.CTkFrame(self, fg_color="#f8f9fa", corner_radius=15)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+# ==================== 頂部標題與切換按鈕 ====================
+header_col1, header_col2 = st.columns([0.6, 0.4])
+with header_col1:
+    st.markdown("### 📋 工作待辦清單", unsafe_allow_html=True)
+with header_col2:
+    completed_count = len(
+        [t for t in data["tasks"] if t.get("status") == "completed"]
+    )
+    history_btn_text = (
+        "返回待辦清單"
+        if st.session_state.show_history
+        else f"查看歷史完成 ({completed_count})"
+    )
+    if st.button(history_btn_text, use_container_width=True):
+        st.session_state.show_history = not st.session_state.show_history
+        st.rerun()
 
-        # 標題列
-        header_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        header_frame.pack(fill="x", padx=20, pady=(20, 10))
+st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
 
-        title_label = ctk.CTkLabel(
-            header_frame, text="📋 工作待辦清單", font=("Microsoft JhengHei", 20, "bold"), text_color="#333333"
-        )
-        title_label.pack(side="left")
+# ==================== 歷史完成頁面 ====================
+if st.session_state.show_history:
+    st.subheader("📜 歷史完成清單")
+    completed_tasks = [
+        t for t in data["tasks"] if t.get("status") == "completed"
+    ]
 
-        self.history_btn = ctk.CTkButton(
-            header_frame, text="查看歷史完成 (0)", 
-            fg_color="#e9ecef", text_color="#495057", hover_color="#dee2e6",
-            font=("Microsoft JhengHei", 12), width=140, height=32,
-            command=self.open_history_window
-        )
-        self.history_btn.pack(side="right")
-
-        # 捲動任務清單區
-        self.canvas_frame = ctk.CTkScrollableFrame(main_frame, fg_color="transparent", height=340)
-        self.canvas_frame.pack(fill="both", expand=True, padx=20, pady=10)
-
-        # 下方新增任務控制面板
-        input_panel = ctk.CTkFrame(main_frame, fg_color="#ffffff", corner_radius=12, border_width=1, border_color="#d0d7de")
-        input_panel.pack(fill="x", padx=20, pady=(10, 20))
-
-        top_input_row = ctk.CTkFrame(input_panel, fg_color="transparent")
-        top_input_row.pack(fill="x", padx=15, pady=15)
-
-        self.task_entry = ctk.CTkEntry(
-            top_input_row, placeholder_text="輸入新工作內容...", 
-            font=("Microsoft JhengHei", 14), height=40, fg_color="#ffffff", border_color="#ced4da"
-        )
-        self.task_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
-
-        self.tag_display_btn = ctk.CTkButton(
-            top_input_row, text="分組標籤", fg_color="#f1f3f5", text_color="#6c757d",
-            font=("Microsoft JhengHei", 13), width=100, height=40, state="disabled"
-        )
-        self.tag_display_btn.pack(side="left", padx=(0, 10))
-
-        add_btn = ctk.CTkButton(
-            top_input_row, text="新增工作", fg_color="#8e9bc2", hover_color="#7786b0", text_color="#ffffff",
-            font=("Microsoft JhengHei", 14, "bold"), width=100, height=40,
-            command=self.add_task
-        )
-        add_btn.pack(side="left")
-
-        tag_row = ctk.CTkFrame(input_panel, fg_color="transparent")
-        tag_row.pack(fill="x", padx=15, pady=(0, 15))
-
-        ctk.CTkLabel(tag_row, text="常用標籤：", font=("Microsoft JhengHei", 12), text_color="#6c757d").pack(side="left", padx=(0, 5))
-        
-        self.tags_container = ctk.CTkFrame(tag_row, fg_color="transparent")
-        self.tags_container.pack(side="left", fill="x", expand=True)
-
-        add_tag_btn = ctk.CTkButton(
-            tag_row, text="標籤管理", fg_color="#e9ecef", text_color="#495057",
-            hover_color="#dee2e6", font=("Microsoft JhengHei", 11), width=85, height=26,
-            command=self.open_tag_manager_dialog
-        )
-        add_tag_btn.pack(side="right", padx=(5, 0))
-
-        self.render_tag_buttons()
-
-    def render_tag_buttons(self):
-        for widget in self.tags_container.winfo_children():
-            widget.destroy()
-
-        for tag, tag_color in self.common_tags.items():
-            is_selected = (self.current_tag == tag)
-            btn_color = "#7786b0" if is_selected else tag_color
-            text_color = "#ffffff" if is_selected else "#212529"
-            
-            t_btn = ctk.CTkButton(
-                self.tags_container, text=tag, fg_color=btn_color, text_color=text_color,
-                hover_color="#cbd5e1" if not is_selected else "#627099",
-                font=("Microsoft JhengHei", 12), width=65, height=26,
-                command=lambda t=tag: self.select_tag(t)
+    if not completed_tasks:
+        st.info("目前尚無已完成的歷史紀錄。")
+    else:
+        for task in completed_tasks:
+            orig_idx = data["tasks"].index(task)
+            tag_color = data["tags"].get(task["tag"], "#E0A9A9")
+            st.markdown(
+                f"""
+                <div style="background-color: #f1f3f5; border-left: 6px solid {tag_color}; padding: 12px 16px; border-radius: 8px; margin-bottom: 10px;">
+                    <span style="text-decoration: line-through; color: #555; font-weight: 500; font-size: 16px;">{task['title']}</span><br>
+                    <small style='color:gray;'>創建: {task['created_at']} | 完成: {task.get('completed_at', 'N/A')} &nbsp;|&nbsp; <span style="background-color:{tag_color}; color:#333; padding:1px 6px; border-radius:8px; font-size:11px;">{task["tag"]}</span></small>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-            t_btn.pack(side="left", padx=3)
-            t_btn.bind("<Button-3>", lambda e, t=tag: self.delete_tag(t))
+            if st.button("刪除此歷史紀錄", key=f"del_hist_{orig_idx}"):
+                data["tasks"].pop(orig_idx)
+                save_data(data)
+                st.rerun()
+    st.stop()
 
-    def select_tag(self, tag):
-        if self.current_tag == tag:
-            self.current_tag = ""
-            self.tag_display_btn.configure(text="分組標籤", text_color="#6c757d")
-        else:
-            self.current_tag = tag
-            if tag in self.common_tags:
-                self.current_color = self.common_tags[tag]
-            self.tag_display_btn.configure(text=tag, text_color="#111827")
-        self.render_tag_buttons()
+# ==================== 上半部：進行中的代辦清單 ====================
+pending_tasks = [
+    t for t in data["tasks"] if t.get("status", "pending") == "pending"
+]
 
-    def open_tag_manager_dialog(self):
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("標籤管理")
-        dialog.geometry("380x350")
-        dialog.resizable(False, False)
-        dialog.grab_set()
+if not pending_tasks:
+    st.info("目前沒有進行中的待辦事項，請在下方新增一個吧！")
+else:
+    for task in pending_tasks:
+        orig_idx = data["tasks"].index(task)
+        tag_color = data["tags"].get(task["tag"], "#E0A9A9")
 
-        ctk.CTkLabel(dialog, text="➕ 新增分組標籤", font=("Microsoft JhengHei", 14, "bold")).pack(padx=20, pady=(15, 5), anchor="w")
-        
-        add_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        add_frame.pack(padx=20, pady=(0, 10), fill="x")
+        with st.container():
+            st.markdown(
+                f"""
+                <div style="background-color: {tag_color}; padding: 10px 16px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center;">
+                """,
+                unsafe_allow_html=True,
+            )
 
-        name_entry = ctk.CTkEntry(add_frame, placeholder_text="輸入新標籤名稱...", width=240, font=("Microsoft JhengHei", 12))
-        name_entry.pack(side="left", padx=(0, 10))
+            c_content, c_done, c_del = st.columns([0.76, 0.12, 0.12])
 
-        selected_col = ctk.StringVar(value="#f5d0d6")
+            with c_content:
+                st.markdown(
+                    f"""
+                    <div style="display: flex; align-items: center; gap: 10px; padding-top: 4px;">
+                        <span style="color: #444; font-size: 18px; cursor: grab;">≡</span>
+                        <span style="background-color: rgba(255,255,255,0.7); color: #333; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; white-space: nowrap;">{task["tag"]}</span>
+                        <span style="font-size: 15px; font-weight: 500; color: #111;">{task['title']}</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-        def pick_custom_color():
-            color_result = colorchooser.askcolor(title="選擇標籤及背景顏色")
-            if color_result[1]:
-                selected_col.set(color_result[1])
-                col_btn.configure(fg_color=color_result[1])
-
-        col_btn = ctk.CTkButton(
-            add_frame, text="選色", fg_color="#f5d0d6", text_color="#212529",
-            hover_color="#ced4da", font=("Microsoft JhengHei", 11), width=60, height=28,
-            command=pick_custom_color
-        )
-        col_btn.pack(side="left")
-
-        def save_new_tag():
-            t_name = name_entry.get().strip()
-            if t_name:
-                chosen_color = selected_col.get()
-                self.common_tags[t_name] = chosen_color
-                self.save_tags()
-                self.current_color = chosen_color
-                self.render_tag_buttons()
-                dialog.destroy()
-
-        save_btn = ctk.CTkButton(dialog, text="確認新增標籤", fg_color="#8e9bc2", hover_color="#7786b0", command=save_new_tag, width=330, height=32)
-        save_btn.pack(pady=(0, 15))
-
-        ctk.CTkFrame(dialog, height=2, fg_color="#dee2e6").pack(fill="x", padx=20, pady=5)
-
-        ctk.CTkLabel(dialog, text="🗑️ 刪除現有標籤 (點擊刪除)", font=("Microsoft JhengHei", 14, "bold")).pack(padx=20, pady=(10, 5), anchor="w")
-
-        tag_scroll = ctk.CTkScrollableFrame(dialog, fg_color="transparent", height=130)
-        tag_scroll.pack(fill="both", expand=True, padx=20, pady=(0, 15))
-
-        def refresh_tag_list_in_dialog():
-            for widget in tag_scroll.winfo_children():
-                widget.destroy()
-
-            for t_name, t_col in self.common_tags.items():
-                row = ctk.CTkFrame(tag_scroll, fg_color="transparent")
-                row.pack(fill="x", pady=3)
-
-                badge = ctk.CTkLabel(row, text=t_name, fg_color=t_col, text_color="#212529", corner_radius=4, width=80, height=26, font=("Microsoft JhengHei", 12))
-                badge.pack(side="left", padx=(0, 10))
-
-                def remove_this_tag(tn=t_name):
-                    self.delete_tag(tn)
-                    refresh_tag_list_in_dialog()
-
-                del_btn = ctk.CTkButton(row, text="刪除", fg_color="#c25c4a", hover_color="#a84939", width=60, height=26, font=("Microsoft JhengHei", 11), command=remove_this_tag)
-                del_btn.pack(side="right")
-
-        refresh_tag_list_in_dialog()
-
-    def delete_tag(self, tag):
-        if tag in self.common_tags:
-            del self.common_tags[tag]
-            self.save_tags()
-            if tag == self.current_tag:
-                self.current_tag = ""
-                self.tag_display_btn.configure(text="分組標籤", text_color="#6c757d")
-            for task in self.tasks:
-                if task["tag"] == tag:
-                    task["tag"] = ""
-            self.save_data()
-            self.render_tag_buttons()
-            self.refresh_task_list()
-
-    def add_task(self):
-        text = self.task_entry.get().strip()
-        if not text:
-            return
-        
-        today = datetime.now().strftime("%Y-%m-%d")
-        new_task = {
-            "text": text,
-            "tag": self.current_tag,
-            "color": self.current_color,
-            "completed": False,
-            "created_date": today,
-            "completed_date": ""
-        }
-        self.tasks.append(new_task)
-        self.save_data()
-        
-        self.task_entry.delete(0, "end")
-        self.refresh_task_list()
-
-    def toggle_task_status(self, original_index):
-        today = datetime.now().strftime("%Y-%m-%d")
-        self.tasks[original_index]["completed"] = True
-        self.tasks[original_index]["completed_date"] = today
-        self.save_data()
-        self.refresh_task_list()
-
-    def delete_task(self, original_index):
-        del self.tasks[original_index]
-        self.save_data()
-        self.refresh_task_list()
-
-    def edit_task(self, original_index):
-        task = self.tasks[original_index]
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("編輯工作項目")
-        dialog.geometry("360x260")
-        dialog.resizable(False, False)
-        dialog.grab_set()
-
-        ctk.CTkLabel(dialog, text="修改工作內容：", font=("Microsoft JhengHei", 13)).pack(padx=20, pady=(20, 5), anchor="w")
-        text_entry = ctk.CTkEntry(dialog, width=320, font=("Microsoft JhengHei", 13))
-        text_entry.pack(padx=20, pady=(0, 10))
-        text_entry.insert(0, task["text"])
-
-        ctk.CTkLabel(dialog, text="選擇標籤：", font=("Microsoft JhengHei", 13)).pack(padx=20, pady=(0, 5), anchor="w")
-        
-        tag_var = ctk.StringVar(value=task["tag"])
-        tag_combo = ctk.CTkComboBox(dialog, values=[""] + list(self.common_tags.keys()), variable=tag_var, width=320)
-        tag_combo.pack(padx=20, pady=(0, 15))
-
-        def save_edit():
-            new_text = text_entry.get().strip()
-            if new_text:
-                task["text"] = new_text
-                chosen_tag = tag_var.get()
-                task["tag"] = chosen_tag
-                if chosen_tag in self.common_tags:
-                    task["color"] = self.common_tags[chosen_tag]
-                self.save_data()
-                self.refresh_task_list()
-                dialog.destroy()
-
-        save_btn = ctk.CTkButton(dialog, text="儲存修改", fg_color="#8e9bc2", hover_color="#7786b0", command=save_edit, width=120)
-        save_btn.pack(pady=(0, 15))
-
-    def open_history_window(self):
-        history_win = ctk.CTkToplevel(self)
-        history_win.title("歷史完成工作紀錄")
-        history_win.geometry("620x450")
-        history_win.minsize(550, 400)
-        history_win.grab_set()
-
-        ctk.CTkLabel(
-            history_win, text="🏆 已完成的工作清單", font=("Microsoft JhengHei", 16, "bold"), text_color="#333333"
-        ).pack(padx=20, pady=(20, 10), anchor="w")
-
-        history_scroll = ctk.CTkScrollableFrame(history_win, fg_color="transparent")
-        history_scroll.pack(fill="both", expand=True, padx=20, pady=10)
-
-        def refresh_history_content():
-            for widget in history_scroll.winfo_children():
-                widget.destroy()
-
-            completed_tasks = [(i, t) for i, t in enumerate(self.tasks) if t["completed"]]
-
-            if not completed_tasks:
-                ctk.CTkLabel(
-                    history_scroll, text="目前沒有已完成的工作紀錄", font=("Microsoft JhengHei", 13), text_color="#adb5bd"
-                ).pack(pady=40)
-                return
-
-            for orig_idx, task in completed_tasks:
-                # 歷史區卡片也改成操場型 (corner_radius=22)
-                card = ctk.CTkFrame(history_scroll, fg_color=task["color"], corner_radius=22, height=48)
-                card.pack(fill="x", pady=4)
-                card.pack_propagate(False)
-
-                left_inner = ctk.CTkFrame(card, fg_color="transparent")
-                left_inner.pack(side="left", padx=15, fill="y")
-
-                if task["tag"]:
-                    tag_badge = ctk.CTkLabel(
-                        left_inner, text=task["tag"], fg_color="#ffffff", text_color="#495057",
-                        corner_radius=10, font=("Microsoft JhengHei", 11), width=45, height=20
+            with c_done:
+                if st.button("完成", key=f"done_{orig_idx}"):
+                    data["tasks"][orig_idx]["status"] = "completed"
+                    data["tasks"][orig_idx]["completed_at"] = datetime.now().strftime(
+                        "%Y-%m-%d %H:%M"
                     )
-                    tag_badge.pack(side="left", padx=(0, 8))
+                    save_data(data)
+                    st.rerun()
 
-                text_label = ctk.CTkLabel(
-                    left_inner, text=task["text"], font=("Microsoft JhengHei", 13), text_color="#495057"
-                )
-                text_label.pack(side="left", padx=(0, 10))
+            with c_del:
+                if st.button("刪除", key=f"del_{orig_idx}"):
+                    data["tasks"].pop(orig_idx)
+                    save_data(data)
+                    st.rerun()
 
-                date_str = f"完成: {task.get('completed_date', 'N/A')}"
-                date_label = ctk.CTkLabel(
-                    left_inner, text=date_str, font=("Microsoft JhengHei", 11), text_color="#6c757d"
-                )
-                date_label.pack(side="left")
+            st.markdown("</div>", unsafe_allow_html=True)
 
-                right_inner = ctk.CTkFrame(card, fg_color="transparent")
-                right_inner.pack(side="right", padx=15, fill="y")
+# ==================== 下半部：精美輸入區與標籤管理框 ====================
+st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+st.markdown("---")
 
-                restore_btn = ctk.CTkButton(
-                    right_inner, text="還原", fg_color="#3b82f6", hover_color="#2563eb",
-                    font=("Microsoft JhengHei", 11, "bold"), width=50, height=26, corner_radius=13,
-                    command=lambda idx=orig_idx: [
-                        self.tasks[idx].update({"completed": False, "completed_date": ""}),
-                        self.save_data(),
-                        self.refresh_task_list(),
-                        refresh_history_content()
-                    ]
-                )
-                restore_btn.pack(side="left", padx=4)
+with st.container():
+    st.markdown(
+        """
+        <div style="background-color: white; border: 1px solid #e0e0e0; padding: 20px; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.02);">
+        """,
+        unsafe_allow_html=True,
+    )
 
-                del_btn = ctk.CTkButton(
-                    right_inner, text="刪除", fg_color="#c25c4a", hover_color="#a84939",
-                    font=("Microsoft JhengHei", 11, "bold"), width=50, height=26, corner_radius=13,
-                    command=lambda idx=orig_idx: [
-                        self.delete_task(idx),
-                        refresh_history_content()
-                    ]
-                )
-                del_btn.pack(side="left")
+    col_input, col_select, col_btn = st.columns([0.5, 0.3, 0.2])
 
-        refresh_history_content()
+    with col_input:
+        input_task_title = st.text_input(
+            "輸入新工作內容...",
+            key="input_task_title_box",
+            label_visibility="collapsed",
+            placeholder="輸入新工作內容...",
+        )
 
-    # ==================== 流暢自由拖曳排序核心事件 ====================
-    def on_drag_start(self, event, uncompleted_idx):
-        self.drag_data["index"] = uncompleted_idx
+    with col_select:
+        tag_options = list(data["tags"].keys())
+        selected_tag = st.selectbox(
+            "分組標籤",
+            tag_options,
+            key="select_tag_box",
+            label_visibility="collapsed",
+        )
 
-    def on_drag_motion(self, event):
-        if self.drag_data["index"] is None:
-            return
-        
-        uncompleted_indices = [i for i, t in enumerate(self.tasks) if not t["completed"]]
-        if not uncompleted_indices:
-            return
+    with col_btn:
+        if st.button("新增工作", use_container_width=True):
+            if input_task_title.strip() == "":
+                st.warning("請輸入工作內容！")
+            else:
+                new_task = {
+                    "title": input_task_title,
+                    "tag": selected_tag,
+                    "status": "pending",
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "completed_at": "",
+                }
+                data["tasks"].append(new_task)
+                save_data(data)
+                st.success("新增成功！")
+                st.rerun()
 
-        current_vis_idx = self.drag_data["index"]
-        
-        target_vis_idx = current_vis_idx
-        for idx, widget_info in enumerate(self.drag_data["widgets"]):
-            widget = widget_info["widget"]
-            y1 = widget.winfo_rooty()
-            y2 = y1 + widget.winfo_height()
-            if y1 <= event.y_root <= y2:
-                target_vis_idx = idx
-                break
+    # 常用標籤列
+    st.markdown(
+        "<div style='font-size: 13px; color: #555; margin-top: 15px; margin-bottom: 8px;'>常用標籤：</div>",
+        unsafe_allow_html=True,
+    )
+    tag_cols = st.columns(len(data["tags"]))
+    for i, (t_name, t_color) in enumerate(data["tags"].items()):
+        with tag_cols[i]:
+            if st.button(
+                f"{t_name} ✕", key=f"quick_del_tag_{t_name}", use_container_width=True
+            ):
+                if len(data["tags"]) > 1:
+                    del data["tags"][t_name]
+                    save_data(data)
+                    st.rerun()
+                else:
+                    st.warning("至少保留一個標籤")
 
-        if target_vis_idx != current_vis_idx:
-            real_current_idx = uncompleted_indices[current_vis_idx]
-            real_target_idx = uncompleted_indices[target_vis_idx]
-            
-            self.tasks[real_current_idx], self.tasks[real_target_idx] = self.tasks[real_target_idx], self.tasks[real_current_idx]
-            self.drag_data["index"] = target_vis_idx
-            self.refresh_task_list()
+    # 顏色預覽與自訂顏色設定
+    st.markdown(
+        "<hr style='margin: 15px 0; border: none; border-top: 1px solid #eee;'>",
+        unsafe_allow_html=True,
+    )
+    c_color_label, c_color_picker, c_custom_label, c_custom_picker = st.columns(
+        [0.15, 0.35, 0.15, 0.35]
+    )
 
-    def on_drag_release(self, event):
-        if self.drag_data["index"] is not None:
-            self.drag_data["index"] = None
-            self.save_data()
-            self.refresh_task_list()
-    # ============================================================
+    with c_color_label:
+        st.markdown(
+            "<div style='padding-top: 5px; font-size: 13px; color: #555;'>常用色：</div>",
+            unsafe_allow_html=True,
+        )
+    with c_color_picker:
+        curr_color = data["tags"].get(selected_tag, "#E0A9A9")
+        st.markdown(
+            f'<div style="width: 30px; height: 30px; background-color: {curr_color}; border-radius: 50%; border: 1px solid #ccc; display: inline-block;"></div>',
+            unsafe_allow_html=True,
+        )
 
-    def refresh_task_list(self):
-        for widget in self.canvas_frame.winfo_children():
-            widget.destroy()
+    with c_custom_label:
+        st.markdown(
+            "<div style='padding-top: 5px; font-size: 13px; color: #555;'>自訂色：</div>",
+            unsafe_allow_html=True,
+        )
+    with c_custom_picker:
+        with st.popover("＋常用色 / 新增標籤", use_container_width=True):
+            new_t_name = st.text_input("新標籤名稱", placeholder="例如：行政")
+            new_t_color = st.color_picker("選擇顏色", "#E0A9A9")
+            if st.button("確認新增"):
+                if new_t_name.strip():
+                    if new_t_name in data["tags"]:
+                        st.warning("標籤已存在！")
+                    else:
+                        data["tags"][new_t_name] = new_t_color
+                        save_data(data)
+                        st.success("新增標籤成功！")
+                        st.rerun()
+                else:
+                    st.warning("請輸入標籤名稱！")
 
-        self.drag_data["widgets"] = []
-
-        completed_count = sum(1 for t in self.tasks if t["completed"])
-        self.history_btn.configure(text=f"查看歷史完成 ({completed_count})")
-
-        uncompleted_tasks = [(i, t) for i, t in enumerate(self.tasks) if not t["completed"]]
-
-        for vis_idx, (real_idx, task) in enumerate(uncompleted_tasks):
-            # 將卡片的 corner_radius 設為 25（高度為 50），讓左右兩側呈現完美半圓形的操場膠囊外型
-            card = ctk.CTkFrame(self.canvas_frame, fg_color=task["color"], corner_radius=18, height=50)
-            card.pack(fill="x", pady=6)
-            card.pack_propagate(False)
-
-            self.drag_data["widgets"].append({"widget": card, "real_index": real_idx})
-
-            left_inner = ctk.CTkFrame(card, fg_color="transparent")
-            left_inner.pack(side="left", padx=15, fill="y")
-
-            grip_label = ctk.CTkLabel(
-                left_inner, text="≡", font=("Microsoft JhengHei", 18, "bold"), text_color="#6c757d", cursor="fleur"
-            )
-            grip_label.pack(side="left", padx=(0, 10))
-
-            grip_label.bind("<Button-1>", lambda e, v_idx=vis_idx: self.on_drag_start(e, v_idx))
-            grip_label.bind("<B1-Motion>", self.on_drag_motion)
-            grip_label.bind("<ButtonRelease-1>", self.on_drag_release)
-
-            if task["tag"]:
-                tag_badge = ctk.CTkLabel(
-                    left_inner, text=task["tag"], fg_color="#ffffff", text_color="#495057",
-                    corner_radius=10, font=("Microsoft JhengHei", 11), width=50, height=22
-                )
-                tag_badge.pack(side="left", padx=(0, 10))
-
-            text_label = ctk.CTkLabel(
-                left_inner, text=task["text"], font=("Microsoft JhengHei", 14), text_color="#212529"
-            )
-            text_label.pack(side="left", padx=(0, 10))
-
-            created_str = f"建立: {task.get('created_date', 'N/A')}"
-            created_label = ctk.CTkLabel(
-                left_inner, text=created_str, font=("Microsoft JhengHei", 11), text_color="#6c757d"
-            )
-            created_label.pack(side="left")
-
-            right_inner = ctk.CTkFrame(card, fg_color="transparent")
-            right_inner.pack(side="right", padx=15, fill="y")
-
-            complete_btn = ctk.CTkButton(
-                right_inner, text="完成", fg_color="#c1dced", hover_color="#a6cce7", text_color="#212529",
-                font=("Microsoft JhengHei", 12, "bold"), width=55, height=28, corner_radius=14,
-                command=lambda idx=real_idx: self.toggle_task_status(idx)
-            )
-            complete_btn.pack(side="left", padx=4)
-
-            edit_btn = ctk.CTkButton(
-                right_inner, text="編輯", fg_color="#868e96", hover_color="#495057",
-                font=("Microsoft JhengHei", 12, "bold"), width=50, height=28, corner_radius=14,
-                command=lambda idx=real_idx: self.edit_task(idx)
-            )
-            edit_btn.pack(side="left", padx=4)
-
-            delete_btn = ctk.CTkButton(
-                right_inner, text="刪除", fg_color="#c25c4a", hover_color="#a84939",
-                font=("Microsoft JhengHei", 12, "bold"), width=50, height=28, corner_radius=14,
-                command=lambda idx=real_idx: self.delete_task(idx)
-            )
-            delete_btn.pack(side="left")
-
-if __name__ == "__main__":
-    app = TodoApp()
-    app.mainloop()
+    st.markdown("</div>", unsafe_allow_html=True)
