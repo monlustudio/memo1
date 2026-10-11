@@ -1,0 +1,74 @@
+[
+    {
+        "text": "電子DM",
+        "tag": "紅斗泥",
+        "color": "#d1b3a9",
+        "completed": false,
+        "created_date": "2026-10-10",
+        "completed_date": ""
+    },
+    {
+        "text": "鹽埕A2圖片",
+        "tag": "紅斗泥",
+        "color": "#d1b3a9",
+        "completed": true,
+        "created_date": "2026-10-10",
+        "completed_date": "2026-10-10"
+    },
+    {
+        "text": "中秋POP",
+        "tag": "紅斗泥",
+        "color": "#d1b3a9",
+        "completed": true,
+        "created_date": "2026-10-10",
+        "completed_date": "2026-10-10"
+    },
+    {
+        "text": "大福系商品修改字樣",
+        "tag": "紅斗泥",
+        "color": "#d1b3a9",
+        "completed": false,
+        "created_date": "2026-10-11",
+        "completed_date": ""
+    },
+    {
+        "text": "回鄉人",
+        "tag": "雲林影片",
+        "color": "#e0da9e",
+        "completed": false,
+        "created_date": "2026-10-10",
+        "completed_date": ""
+    },
+    {
+        "text": "豪客居酒屋",
+        "tag": "雲林影片",
+        "color": "#e0da9e",
+        "completed": false,
+        "created_date": "2026-10-10",
+        "completed_date": ""
+    },
+    {
+        "text": "白序豆花",
+        "tag": "雲林影片",
+        "color": "#e0da9e",
+        "completed": false,
+        "created_date": "2026-10-10",
+        "completed_date": ""
+    },
+    {
+        "text": "新版DM MENU",
+        "tag": "紅斗泥",
+        "color": "#d1b3a9",
+        "completed": false,
+        "created_date": "2026-10-10",
+        "completed_date": ""
+    },
+    {
+        "text": "個人影片",
+        "tag": "夢廬",
+        "color": "#253f21",
+        "completed": false,
+        "created_date": "2026-10-10",
+        "completed_date": ""
+    }
+]
